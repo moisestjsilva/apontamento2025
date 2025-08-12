@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Package, Plus, Minus } from "lucide-react";
+
+interface ReworkReason {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+}
 
 interface Piece {
   id: string;
@@ -24,7 +32,7 @@ interface ProductionFormProps {
   piece: Piece | null;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { pieceId: string; production: number; rework: number; reason: string; operatorName: string }) => void;
+  onSubmit: (data: { pieceId: string; production: number; rework: number; reason: string; reasonId?: string; observations: string; operatorName: string }) => void;
   currentUser: { id: string; name: string; email: string; role: string } | null;
 }
 
@@ -32,7 +40,37 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }
   const [productionQty, setProductionQty] = useState<number>(0);
   const [reworkQty, setReworkQty] = useState<number>(0);
   const [reworkReason, setReworkReason] = useState("");
+  const [selectedReasonId, setSelectedReasonId] = useState<string>("");
+  const [observations, setObservations] = useState("");
+  const [reworkReasons, setReworkReasons] = useState<ReworkReason[]>([]);
   const { toast } = useToast();
+
+  // Buscar motivos de retrabalho quando o componente for montado
+  useEffect(() => {
+    if (isOpen) {
+      fetchReworkReasons();
+    }
+  }, [isOpen]);
+
+  const fetchReworkReasons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('rework_reasons')
+        .select('*')
+        .eq('active', true)
+        .order('name');
+
+      if (error) throw error;
+      setReworkReasons(data || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar motivos:', error);
+    }
+  };
+
+  const handleReasonSelect = (reason: ReworkReason) => {
+    setSelectedReasonId(reason.id);
+    setReworkReason(reason.name);
+  };
 
   const handleSubmit = () => {
     // Verificar se pelo menos um dos campos (produção ou retrabalho) tem valor maior que zero
@@ -48,7 +86,7 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }
     if (reworkQty > 0 && !reworkReason.trim()) {
       toast({
         title: "Erro",
-        description: "Informe o motivo do retrabalho",
+        description: "Selecione ou descreva o motivo do retrabalho",
         variant: "destructive",
       });
       return;
@@ -73,6 +111,8 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }
       production: productionQty,
       rework: reworkQty,
       reason: reworkReason,
+      reasonId: selectedReasonId || undefined,
+      observations: observations,
       operatorName: currentUser.name
     });
 
@@ -80,6 +120,8 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }
     setProductionQty(0);
     setReworkQty(0);
     setReworkReason("");
+    setSelectedReasonId("");
+    setObservations("");
     
     toast({
       title: "Sucesso",
@@ -232,15 +274,58 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }
           {reworkQty > 0 && (
             <div className="space-y-3">
               <label className="text-base font-semibold">Motivo do Retrabalho *</label>
+              
+              {/* Botões de motivos padrão */}
+              {reworkReasons.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Motivos padrão:</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {reworkReasons.map((reason) => (
+                      <Button
+                        key={reason.id}
+                        variant={selectedReasonId === reason.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleReasonSelect(reason)}
+                        className="justify-start text-left h-auto py-2 px-3"
+                      >
+                        <div>
+                          <div className="font-medium">{reason.name}</div>
+                          {reason.description && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {reason.description}
+                            </div>
+                          )}
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Textarea
-                placeholder="Descreva o motivo do retrabalho..."
+                placeholder="Descreva o motivo do retrabalho ou adicione observações..."
                 value={reworkReason}
-                onChange={(e) => setReworkReason(e.target.value)}
+                onChange={(e) => {
+                  setReworkReason(e.target.value);
+                  setSelectedReasonId(""); // Limpar seleção se o usuário digitar
+                }}
                 rows={3}
                 className="text-base"
               />
             </div>
           )}
+
+          {/* Campo de Observações */}
+          <div className="space-y-3">
+            <label className="text-base font-semibold">Observações</label>
+            <Textarea
+              placeholder="Observações adicionais (opcional)..."
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              rows={2}
+              className="text-base"
+            />
+          </div>
           
 
         </div>

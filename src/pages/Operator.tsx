@@ -28,6 +28,7 @@ interface Piece {
   color?: string;
   quantity: number;
   produced_quantity: number;
+  rework_total?: number;
   completed: boolean;
 }
 
@@ -181,12 +182,33 @@ const Operator = () => {
             return { ...batch, pieces: [] };
           }
 
-          const piecesWithStatus = (pieces || []).map(piece => ({
-            ...piece,
-            completed: piece.produced_quantity >= piece.quantity
-          }));
+          // Buscar dados de retrabalho para cada peça
+          const piecesWithRework = await Promise.all(
+            (pieces || []).map(async (piece) => {
+              const { data: reworkData, error: reworkError } = await supabase
+                .from('production_records')
+                .select('quantity_rework')
+                .eq('piece_id', piece.id)
+                .not('quantity_rework', 'is', null);
 
-          return { ...batch, pieces: piecesWithStatus };
+              if (reworkError) {
+                console.error('Erro ao buscar dados de retrabalho:', reworkError);
+              }
+
+              // Calcular total de retrabalho
+              const totalRework = (reworkData || []).reduce((sum, record) =>
+                sum + (record.quantity_rework || 0), 0
+              );
+
+              return {
+                ...piece,
+                rework_total: totalRework,
+                completed: piece.produced_quantity >= piece.quantity
+              };
+            })
+          );
+
+          return { ...batch, pieces: piecesWithRework };
         })
       );
 
@@ -245,18 +267,32 @@ const Operator = () => {
     }
   };
 
-  const handleSubmit = async (data: { pieceId: string; production: number; rework: number; reason: string; operatorName: string }) => {
+  const handleSubmit = async (data: { pieceId: string; production: number; rework: number; reason: string; reasonId?: string; observations: string; operatorName: string }) => {
     try {
       // Registrar apontamento de produção
+      const recordData: any = {
+        piece_id: data.pieceId,
+        operator_name: data.operatorName,
+        quantity_produced: data.production,
+        quantity_rework: data.rework > 0 ? data.rework : null,
+        notes: data.reason || null,
+      };
+
+      // Adicionar reasonId se fornecido
+      if (data.reasonId) {
+        recordData.rework_reason_id = data.reasonId;
+      }
+
+      // Adicionar observações se fornecidas
+      if (data.observations.trim()) {
+        recordData.notes = recordData.notes
+          ? `${recordData.notes}\n\nObservações: ${data.observations.trim()}`
+          : `Observações: ${data.observations.trim()}`;
+      }
+
       const { error: recordError } = await supabase
         .from('production_records')
-        .insert({
-          piece_id: data.pieceId,
-          operator_name: data.operatorName,
-          quantity_produced: data.production,
-          quantity_rework: data.rework > 0 ? data.rework : null,
-          notes: data.reason || null,
-        });
+        .insert(recordData);
 
       if (recordError) throw recordError;
 
@@ -315,7 +351,7 @@ const Operator = () => {
     color: batch.color || piece.color || "Não especificado",
     planned: piece.quantity,
     produced: piece.produced_quantity,
-    rework: 0, // We don't have rework data in the current schema
+    rework: piece.rework_total || 0,
     completed: piece.completed
   });
 

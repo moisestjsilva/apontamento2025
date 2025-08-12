@@ -93,12 +93,12 @@ export const PieceCard = ({ piece, onClick }: PieceCardProps) => {
             <div className="text-xl font-semibold text-muted-foreground">{piece.planned}</div>
             <div className="text-sm text-muted-foreground">Planejado</div>
           </div>
-          {piece.rework > 0 && (
-            <div className="text-center">
-              <div className="text-xl font-semibold text-orange-600">{piece.rework}</div>
-              <div className="text-sm text-muted-foreground">Retrabalho</div>
+          <div className="text-center">
+            <div className={`text-xl font-bold ${piece.rework > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+              {piece.rework}
             </div>
-          )}
+            <div className="text-sm text-muted-foreground">Retrabalho</div>
+          </div>
         </div>
 
         {/* Progress bar */}

@@ -3,12 +3,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, FileSpreadsheet, BarChart3, Package, Users } from "lucide-react";
+import { PlusCircle, FileSpreadsheet, BarChart3, Package, Users, AlertTriangle } from "lucide-react";
 import { BatchList } from "@/components/admin/BatchList";
 import { ProductionReports } from "@/components/admin/ProductionReports";
 import { BatchForm } from "@/components/admin/BatchForm";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { PieceImport } from "@/components/admin/PieceImport";
+import { ReworkReasonsManagement } from "@/components/admin/ReworkReasonsManagement";
 
 const Admin = () => {
   const [showBatchForm, setShowBatchForm] = useState(false);
@@ -56,7 +57,7 @@ const Admin = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="batches" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="batches" className="flex items-center space-x-2">
               <Package className="h-4 w-4" />
               <span>Lotes</span>
@@ -64,6 +65,10 @@ const Admin = () => {
             <TabsTrigger value="import" className="flex items-center space-x-2">
               <FileSpreadsheet className="h-4 w-4" />
               <span>Importar</span>
+            </TabsTrigger>
+            <TabsTrigger value="rework" className="flex items-center space-x-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Motivos</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
@@ -77,6 +82,10 @@ const Admin = () => {
 
           <TabsContent value="import" className="space-y-6">
             <PieceImport />
+          </TabsContent>
+
+          <TabsContent value="rework" className="space-y-6">
+            <ReworkReasonsManagement />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">

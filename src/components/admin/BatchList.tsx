@@ -30,6 +30,7 @@ interface Piece {
   color?: string;
   quantity: number;
   produced_quantity: number;
+  rework_total?: number;
 }
 
 interface BatchListProps {
@@ -67,7 +68,32 @@ export const BatchList = ({ onRefresh }: BatchListProps) => {
             return { ...batch, pieces: [] };
           }
 
-          return { ...batch, pieces: pieces || [] };
+          // Buscar dados de retrabalho para cada peça do lote
+          const piecesWithRework = await Promise.all(
+            (pieces || []).map(async (piece) => {
+              const { data: reworkData, error: reworkError } = await supabase
+                .from('production_records')
+                .select('quantity_rework')
+                .eq('piece_id', piece.id)
+                .not('quantity_rework', 'is', null);
+
+              if (reworkError) {
+                console.error('Erro ao buscar dados de retrabalho:', reworkError);
+              }
+
+              // Calcular total de retrabalho
+              const totalRework = (reworkData || []).reduce((sum, record) => 
+                sum + (record.quantity_rework || 0), 0
+              );
+
+              return {
+                ...piece,
+                rework_total: totalRework
+              };
+            })
+          );
+
+          return { ...batch, pieces: piecesWithRework };
         })
       );
 
@@ -187,22 +213,29 @@ export const BatchList = ({ onRefresh }: BatchListProps) => {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredBatches.map((batch) => (
-              <Card 
-                key={batch.id} 
-                className="border hover:bg-muted/50 transition-colors"
-                style={{
-                  borderColor: batch.color,
-                  backgroundColor: `${batch.color}10`,
-                  borderWidth: '2px'
-                }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h3 className="font-semibold">{batch.name}</h3>
-                        <Badge variant="outline">{batch.code}</Badge>
+            {filteredBatches.map((batch) => {
+              // Calcular totais do lote
+              const totalPlanned = batch.pieces?.reduce((sum, piece) => sum + piece.quantity, 0) || 0;
+              const totalProduced = batch.pieces?.reduce((sum, piece) => sum + piece.produced_quantity, 0) || 0;
+              const totalRework = batch.pieces?.reduce((sum, piece) => sum + (piece.rework_total || 0), 0) || 0;
+              const progressPercentage = totalPlanned > 0 ? Math.min((totalProduced / totalPlanned) * 100, 100) : 0;
+
+              return (
+                <Card 
+                  key={batch.id} 
+                  className="border hover:bg-muted/50 transition-colors"
+                  style={{
+                    borderColor: batch.color,
+                    backgroundColor: `${batch.color}15`,
+                    borderWidth: '2px'
+                  }}
+                >
+                  <CardContent className="p-4">
+                    {/* Header com nome, código e status */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-semibold text-lg">{batch.name}</h3>
+                        <Badge variant="outline" className="font-mono">{batch.code}</Badge>
                         <Badge variant={getStatusVariant(batch.status)}>
                           {batch.status}
                         </Badge>
@@ -212,53 +245,94 @@ export const BatchList = ({ onRefresh }: BatchListProps) => {
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Criado em:</span>
-                          <p className="font-medium">{new Date(batch.created_at).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Início:</span>
-                          <p className="font-medium">{new Date(batch.start_date).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Fim:</span>
-                          <p className="font-medium">{new Date(batch.end_date).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Total de Peças:</span>
-                          <p className="font-medium">{batch.pieces?.length || 0}</p>
-                        </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedBatch(batch)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditingBatch(batch)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteBatch(batch.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex space-x-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedBatch(batch)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setEditingBatch(batch)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteBatch(batch.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+
+                    {/* Informações do lote */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                      <div>
+                        <span className="text-muted-foreground">Criado em:</span>
+                        <p className="font-medium">{new Date(batch.created_at).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Início:</span>
+                        <p className="font-medium">{new Date(batch.start_date).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Fim:</span>
+                        <p className="font-medium">{new Date(batch.end_date).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Total de Peças:</span>
+                        <p className="font-medium">{batch.pieces?.length || 0}</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Números de produção */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">{totalProduced}</div>
+                        <div className="text-sm text-muted-foreground">Produzido</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xl font-semibold text-muted-foreground">{totalPlanned}</div>
+                        <div className="text-sm text-muted-foreground">Planejado</div>
+                      </div>
+                      <div className="text-center">
+                        <div className={`text-xl font-bold ${totalRework > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                          {totalRework}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Retrabalho</div>
+                      </div>
+                    </div>
+
+                    {/* Barra de progresso */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progresso</span>
+                        <span>{Math.round(progressPercentage)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-3 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${progressPercentage}%`,
+                            backgroundColor: progressPercentage >= 100 
+                              ? '#10b981' // verde para lotes completos
+                              : totalRework > 0 
+                                ? '#f97316' // laranja para lotes com retrabalho
+                                : batch.color // cor do lote
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </CardContent>
