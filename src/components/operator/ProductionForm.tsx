@@ -25,13 +25,13 @@ interface ProductionFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: { pieceId: string; production: number; rework: number; reason: string; operatorName: string }) => void;
+  currentUser: { id: string; name: string; email: string; role: string } | null;
 }
 
-export const ProductionForm = ({ piece, isOpen, onClose, onSubmit }: ProductionFormProps) => {
+export const ProductionForm = ({ piece, isOpen, onClose, onSubmit, currentUser }: ProductionFormProps) => {
   const [productionQty, setProductionQty] = useState<number>(0);
   const [reworkQty, setReworkQty] = useState<number>(0);
   const [reworkReason, setReworkReason] = useState("");
-  const [operatorName, setOperatorName] = useState("");
   const { toast } = useToast();
 
   const handleSubmit = () => {
@@ -54,10 +54,10 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit }: ProductionF
       return;
     }
     
-    if (!operatorName.trim()) {
+    if (!currentUser?.name) {
       toast({
         title: "Erro",
-        description: "Informe o nome do operador",
+        description: "Usuário não identificado",
         variant: "destructive",
       });
       return;
@@ -73,14 +73,13 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit }: ProductionF
       production: productionQty,
       rework: reworkQty,
       reason: reworkReason,
-      operatorName: operatorName
+      operatorName: currentUser.name
     });
 
     // Reset form
     setProductionQty(0);
     setReworkQty(0);
     setReworkReason("");
-    setOperatorName("");
     
     toast({
       title: "Sucesso",
@@ -243,16 +242,7 @@ export const ProductionForm = ({ piece, isOpen, onClose, onSubmit }: ProductionF
             </div>
           )}
           
-          {/* Operator Name */}
-          <div className="space-y-3">
-            <label className="text-base font-semibold">Nome do Operador *</label>
-            <Input
-              placeholder="Digite seu nome..."
-              value={operatorName}
-              onChange={(e) => setOperatorName(e.target.value)}
-              className="text-base"
-            />
-          </div>
+
         </div>
 
         {/* Action buttons */}

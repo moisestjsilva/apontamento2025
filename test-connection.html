@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conexão - Sistema de Apontamento</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste de Conexão - Sistema de Apontamento</h1>
+        
+        <div id="status" class="status info">
+            Clique em "Testar Conexão" para verificar se o sistema está funcionando.
+        </div>
+
+        <div>
+            <button onclick="testConnection()">🔗 Testar Conexão</button>
+            <button onclick="testLogin()">👤 Testar Login</button>
+            <button onclick="loadBatches()">📦 Carregar Lotes</button>
+            <button onclick="loadUsers()">👥 Carregar Usuários</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
+
+        const SUPABASE_URL = "https://zxicuufhyuzhrsolwckm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4aWN1dWZoeXV6aHJzb2x3Y2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMDQ3MTQsImV4cCI6MjA3MDU4MDcxNH0.67ND9IeqhAm2eA4hPfEj71DzJjoGwaZVyQJNonhhjOU";
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        window.supabase = supabase;
+
+        window.testConnection = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Testando conexão...';
+            resultsDiv.innerHTML = '';
+
+            try {
+                // Teste básico de conexão
+                const { data, error } = await supabase
+                    .from('batches')
+                    .select('count')
+                    .limit(1);
+
+                if (error) throw error;
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Conexão com Supabase estabelecida com sucesso!';
+                
+                resultsDiv.innerHTML = `
+                    <h3>✅ Teste de Conexão Bem-sucedido</h3>
+                    <p>O sistema conseguiu se conectar ao banco de dados Supabase.</p>
+                `;
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro na conexão: ' + error.message;
+                
+                resultsDiv.innerHTML = `
+                    <h3>❌ Erro de Conexão</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                    <p><strong>Detalhes:</strong> ${JSON.stringify(error, null, 2)}</p>
+                `;
+            }
+        };
+
+        window.testLogin = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Testando login de operador...';
+
+            try {
+                const { data: users, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('email', 'operador1@empresa.com')
+                    .eq('active', true)
+                    .eq('role', 'operator');
+
+                if (error) throw error;
+
+                if (users && users.length > 0) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Login de operador funcionando!';
+                    
+                    resultsDiv.innerHTML = `
+                        <h3>✅ Teste de Login Bem-sucedido</h3>
+                        <p><strong>Usuário encontrado:</strong> ${users[0].name}</p>
+                        <p><strong>Email:</strong> ${users[0].email}</p>
+                        <p><strong>Role:</strong> ${users[0].role}</p>
+                        <p><strong>Ativo:</strong> ${users[0].active ? 'Sim' : 'Não'}</p>
+                    `;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ Usuário operador1@empresa.com não encontrado';
+                    
+                    resultsDiv.innerHTML = `
+                        <h3>❌ Usuário Não Encontrado</h3>
+                        <p>O usuário operador1@empresa.com não foi encontrado no banco de dados.</p>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro no teste de login: ' + error.message;
+                
+                resultsDiv.innerHTML = `
+                    <h3>❌ Erro no Teste de Login</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                `;
+            }
+        };
+
+        window.loadBatches = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Carregando lotes...';
+
+            try {
+                const { data: batches, error } = await supabase
+                    .from('batches')
+                    .select('*')
+                    .eq('status', 'Em andamento')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ ${batches.length} lote(s) carregado(s)`;
+                
+                let tableHTML = `
+                    <h3>📦 Lotes Ativos</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Status</th>
+                                <th>Data Início</th>
+                                <th>Data Fim</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                batches.forEach(batch => {
+                    tableHTML += `
+                        <tr>
+                            <td>${batch.code}</td>
+                            <td>${batch.name}</td>
+                            <td>${batch.status}</td>
+                            <td>${batch.start_date}</td>
+                            <td>${batch.end_date}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</tbody></table>';
+                resultsDiv.innerHTML = tableHTML;
+
+                // Carregar peças para cada lote
+                for (const batch of batches) {
+                    const { data: pieces, error: piecesError } = await supabase
+                        .from('pieces')
+                        .select('*')
+                        .eq('batch_id', batch.id);
+
+                    if (!piecesError && pieces.length > 0) {
+                        let piecesHTML = `
+                            <h4>🔧 Peças do Lote ${batch.name}</h4>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descrição</th>
+                                        <th>Planejado</th>
+                                        <th>Produzido</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+
+                        pieces.forEach(piece => {
+                            const completed = piece.produced_quantity >= piece.quantity;
+                            piecesHTML += `
+                                <tr>
+                                    <td>${piece.code}</td>
+                                    <td>${piece.description}</td>
+                                    <td>${piece.quantity}</td>
+                                    <td>${piece.produced_quantity}</td>
+                                    <td>${completed ? '✅ Completo' : '⏳ Em andamento'}</td>
+                                </tr>
+                            `;
+                        });
+
+                        piecesHTML += '</tbody></table>';
+                        resultsDiv.innerHTML += piecesHTML;
+                    }
+                }
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro ao carregar lotes: ' + error.message;
+                
+                resultsDiv.innerHTML = `
+                    <h3>❌ Erro ao Carregar Lotes</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                `;
+            }
+        };
+
+        window.loadUsers = async function() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Carregando usuários...';
+
+            try {
+                const { data: users, error } = await supabase
+                    .from('users')
+                    .select('id, name, email, role, active, last_login')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ ${users.length} usuário(s) carregado(s)`;
+                
+                let tableHTML = `
+                    <h3>👥 Usuários do Sistema</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Ativo</th>
+                                <th>Último Login</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                users.forEach(user => {
+                    tableHTML += `
+                        <tr>
+                            <td>${user.name}</td>
+                            <td>${user.email}</td>
+                            <td>${user.role}</td>
+                            <td>${user.active ? '✅ Sim' : '❌ Não'}</td>
+                            <td>${user.last_login ? new Date(user.last_login).toLocaleString('pt-BR') : 'Nunca'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</tbody></table>';
+                resultsDiv.innerHTML = tableHTML;
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro ao carregar usuários: ' + error.message;
+                
+                resultsDiv.innerHTML = `
+                    <h3>❌ Erro ao Carregar Usuários</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

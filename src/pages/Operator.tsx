@@ -2,11 +2,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Wifi, WifiOff, LogOut } from "lucide-react";
+import { Package, Wifi, WifiOff, LogOut, User } from "lucide-react";
 import { SearchHeader } from "@/components/operator/SearchHeader";
 import { PieceCard } from "@/components/operator/PieceCard";
 import { ProductionForm } from "@/components/operator/ProductionForm";
-import { LoginForm } from "@/components/operator/LoginForm";
+
 import { useOfflineStorage } from "@/hooks/useOfflineStorage";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ interface Batch {
   code: string;
   name: string;
   status: string;
+  color?: string;
   pieces: Piece[];
 }
 
@@ -46,10 +47,10 @@ const Operator = () => {
   const [selectedPiece, setSelectedPiece] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const { isOnline, saveRecord, hasPendingRecords } = useOfflineStorage();
   const { toast } = useToast();
 
@@ -62,42 +63,102 @@ const Operator = () => {
         if (userData && userData.loggedIn) {
           setIsAuthenticated(true);
           setCurrentUser(userData);
-          fetchBatches();
-        } else {
-          setShowLoginForm(true);
         }
       } catch (e) {
-        setShowLoginForm(true);
+        console.error('Erro ao carregar usuário do localStorage:', e);
       }
-    } else {
-      setShowLoginForm(true);
     }
+    setIsInitializing(false);
   }, []);
 
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    setShowLoginForm(false);
-    const storedUser = localStorage.getItem('operatorUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+  // Separar o useEffect para fetchBatches
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchBatches();
     }
-    fetchBatches();
-  };
-  
+  }, [isAuthenticated]);
+
   const handleLogout = () => {
     localStorage.removeItem('operatorUser');
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setShowLoginForm(true);
     setBatches([]);
+  };
+
+  const handleQuickLogin = async (email: string) => {
+    setIsLoading(true);
+
+    try {
+      // Buscar usuários com o email fornecido
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('active', true)
+        .eq('role', 'operator');
+
+      if (error) throw error;
+
+      // Verificar se encontrou algum usuário
+      if (!users || users.length === 0) {
+        toast({
+          title: "Erro",
+          description: "Usuário não encontrado ou inativo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const user = users[0];
+
+      // Atualizar último login
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', user.id);
+
+      // Armazenar informações do usuário no localStorage
+      localStorage.setItem('operatorUser', JSON.stringify({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        loggedIn: true
+      }));
+
+      toast({
+        title: "Sucesso",
+        description: `Bem-vindo, ${user.name}!`,
+      });
+
+      setIsAuthenticated(true);
+      setCurrentUser({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        loggedIn: true
+      });
+
+      // Não chamar fetchBatches aqui pois será chamado pelo useEffect
+    } catch (error: any) {
+      console.error('Erro ao fazer login:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao fazer login. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchBatches = async () => {
     if (!isAuthenticated) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       // Buscar lotes ativos
       const { data: batchesData, error: batchesError } = await supabase
         .from('batches')
@@ -154,7 +215,7 @@ const Operator = () => {
     // Find piece by barcode and its batch
     let foundPiece = null;
     let foundBatch = null;
-    
+
     for (const batch of batches) {
       const piece = batch.pieces.find(p => p.code === code);
       if (piece) {
@@ -163,14 +224,14 @@ const Operator = () => {
         break;
       }
     }
-    
+
     if (foundPiece && foundBatch) {
       // Adiciona a cor do lote à peça selecionada
       setSelectedPiece({
         ...foundPiece,
         batchColor: foundBatch.color
       });
-      
+
       toast({
         title: "Peça encontrada",
         description: `${foundPiece.code} - ${foundPiece.description}`,
@@ -207,7 +268,7 @@ const Operator = () => {
 
         if (currentPiece) {
           const newProducedQuantity = currentPiece.produced_quantity + data.production;
-          
+
           const { error: updateError } = await supabase
             .from('pieces')
             .update({ produced_quantity: newProducedQuantity })
@@ -227,7 +288,7 @@ const Operator = () => {
       setSelectedPiece(null);
     } catch (error: any) {
       console.error('Erro ao salvar apontamento:', error);
-      
+
       // Se estiver offline, salvar localmente
       if (!isOnline) {
         saveRecord(data);
@@ -258,10 +319,10 @@ const Operator = () => {
     completed: piece.completed
   });
 
-  const filteredBatches = batches.filter(batch => 
+  const filteredBatches = batches.filter(batch =>
     batch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     batch.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    batch.pieces.some(piece => 
+    batch.pieces.some(piece =>
       piece.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       piece.description.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -291,6 +352,24 @@ const Operator = () => {
     );
   }
 
+  // Mostrar loading durante inicialização
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Inicializando...</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Se não estiver autenticado, mostrar apenas o formulário de login
   if (!isAuthenticated) {
     return (
@@ -307,11 +386,44 @@ const Operator = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <LoginForm 
-                open={showLoginForm} 
-                onClose={() => {}} 
-                onSuccess={handleLoginSuccess} 
-              />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">Email</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="operador1@empresa.com"
+                      className="w-full pl-10 pr-3 py-2 border border-input bg-background rounded-md text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const email = (e.target as HTMLInputElement).value;
+                          if (email) {
+                            handleQuickLogin(email);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use: operador1@empresa.com ou operador2@empresa.com
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    const emailInput = document.getElementById('email') as HTMLInputElement;
+                    if (emailInput?.value) {
+                      handleQuickLogin(emailInput.value);
+                    }
+                  }}
+                  className="w-full bg-accent hover:bg-accent/90"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Entrando..." : "Entrar"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -326,13 +438,13 @@ const Operator = () => {
         onSearchChange={setSearchTerm}
         onBarcodeScanned={handleBarcodeScanned}
       />
-      
+
       <div className="container mx-auto px-4 py-2 flex justify-end">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium">{currentUser.name}</span>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4 mr-1" />
@@ -381,8 +493,8 @@ const Operator = () => {
               <div className="text-center">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  {searchTerm 
-                    ? "Nenhum lote encontrado com este termo de busca." 
+                  {searchTerm
+                    ? "Nenhum lote encontrado com este termo de busca."
                     : "Nenhum lote ativo encontrado."}
                 </p>
               </div>
@@ -430,6 +542,7 @@ const Operator = () => {
         isOpen={!!selectedPiece}
         onClose={() => setSelectedPiece(null)}
         onSubmit={handleSubmit}
+        currentUser={currentUser}
       />
     </div>
   );

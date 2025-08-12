@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { User, Lock } from "lucide-react";
+import { User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +15,6 @@ interface LoginFormProps {
 
 export const LoginForm = ({ open, onClose, onSuccess }: LoginFormProps) => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -46,14 +45,10 @@ export const LoginForm = ({ open, onClose, onSuccess }: LoginFormProps) => {
 
       const user = users[0];
 
-      // Aqui seria ideal ter uma verificação de senha com hash
-      // Mas para simplificar, vamos apenas verificar se o email existe
-      // Em um sistema real, você deve implementar autenticação segura
-
       // Atualizar último login
       await supabase
         .from('users')
-        .update({ lastLogin: new Date().toISOString() })
+        .update({ last_login: new Date().toISOString() })
         .eq('id', user.id);
 
       // Armazenar informações do usuário no localStorage
@@ -104,29 +99,16 @@ export const LoginForm = ({ open, onClose, onSuccess }: LoginFormProps) => {
               <Input
                 id="email"
                 type="email"
-                placeholder="seu.email@empresa.com"
+                placeholder="operador1@empresa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
                 required
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="Sua senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-                required
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Use: operador1@empresa.com ou operador2@empresa.com
+            </p>
           </div>
 
           <Button

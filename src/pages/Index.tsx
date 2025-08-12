@@ -105,6 +105,43 @@ const Index = () => {
             </Card>
           </div>
 
+          {/* Test Section */}
+          <div className="mt-12">
+            <Card className="bg-yellow-50 border-yellow-200">
+              <CardHeader className="text-center">
+                <CardTitle className="text-lg text-yellow-800">🔧 Área de Testes</CardTitle>
+                <CardDescription className="text-yellow-700">
+                  Ferramentas para debug e teste do sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <Button 
+                    onClick={() => navigate("/operator-test")}
+                    variant="outline"
+                    className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    Teste Operador (React)
+                  </Button>
+                  <Button 
+                    onClick={() => navigate("/operator-test-simple")}
+                    variant="outline"
+                    className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    Teste Simples
+                  </Button>
+                  <Button 
+                    onClick={() => window.open('/test-supabase.html', '_blank')}
+                    variant="outline"
+                    className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    Teste HTML Puro
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Info Section */}
           <div className="mt-16 text-center">
             <Card className="bg-muted/30">

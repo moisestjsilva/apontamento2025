@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Tela de Apontamento</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .batch-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+
+        .piece-card {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            background: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .piece-card:hover {
+            background-color: #f0f0f0;
+        }
+
+        .piece-card.completed {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔧 Debug - Tela de Apontamento</h1>
+
+        <div id="status" class="status info">
+            Sistema inicializando...
+        </div>
+
+        <div id="debug-info"></div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="login-container" class="container hidden">
+        <h2>👤 Login do Operador</h2>
+        <div class="login-form">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" placeholder="operador1@empresa.com" value="operador1@empresa.com">
+            </div>
+            <button onclick="doLogin()" id="login-btn">Entrar</button>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-container" class="container hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>📦 Lotes Ativos</h2>
+            <div>
+                <span id="user-name"></span>
+                <button onclick="doLogout()">Sair</button>
+            </div>
+        </div>
+
+        <div id="batches-container"></div>
+    </div>
+
+    <!-- Production Modal -->
+    <div id="production-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>📝 Apontar Produção</h3>
+            <div id="selected-piece-info"></div>
+
+            <div class="form-group">
+                <label for="production-qty">Quantidade Produzida:</label>
+                <input type="number" id="production-qty" min="0" value="0">
+            </div>
+
+            <div class="form-group">
+                <label for="rework-qty">Quantidade para Retrabalho:</label>
+                <input type="number" id="rework-qty" min="0" value="0">
+            </div>
+
+            <div class="form-group" id="rework-reason-group" style="display: none;">
+                <label for="rework-reason">Motivo do Retrabalho:</label>
+                <textarea id="rework-reason" rows="3"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="operator-name">Nome do Operador:</label>
+                <input type="text" id="operator-name" placeholder="Digite seu nome">
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button onclick="closeProductionModal()">Cancelar</button>
+                <button onclick="submitProduction()" id="submit-btn">Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
+
+        const SUPABASE_URL = "https://zxicuufhyuzhrsolwckm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4aWN1dWZoeXV6aHJzb2x3Y2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMDQ3MTQsImV4cCI6MjA3MDU4MDcxNH0.67ND9IeqhAm2eA4hPfEj71DzJjoGwaZVyQJNonhhjOU";
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUser = null;
+        let batches = [];
+        let selectedPiece = null;
+
+        // Global functions
+        window.supabase = supabase;
+        window.doLogin = doLogin;
+        window.doLogout = doLogout;
+        window.selectPiece = selectPiece;
+        window.closeProductionModal = closeProductionModal;
+        window.submitProduction = submitProduction;
+
+        async function init() {
+            const statusDiv = document.getElementById('status');
+            const debugDiv = document.getElementById('debug-info');
+
+            try {
+                statusDiv.textContent = 'Verificando conexão...';
+
+                // Test connection
+                const { data, error } = await supabase
+                    .from('batches')
+                    .select('count')
+                    .limit(1);
+
+                if (error) throw error;
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Conexão estabelecida com sucesso!';
+
+                // Check if user is already logged in
+                const storedUser = localStorage.getItem('operatorUser');
+                if (storedUser) {
+                    try {
+                        const userData = JSON.parse(storedUser);
+                        if (userData && userData.loggedIn) {
+                            currentUser = userData;
+                            showApp();
+                            await loadBatches();
+                            return;
+                        }
+                    } catch (e) {
+                        localStorage.removeItem('operatorUser');
+                    }
+                }
+
+                showLogin();
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro na inicialização: ' + error.message;
+
+                debugDiv.innerHTML = `
+                    <h3>❌ Erro de Inicialização</h3>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                    <p><strong>Stack:</strong> ${error.stack}</p>
+                `;
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('login-container').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+        }
+
+        function showApp() {
+            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('user-name').textContent = currentUser.name;
+        }
+
+        async function doLogin() {
+            const email = document.getElementById('email').value;
+            const loginBtn = document.getElementById('login-btn');
+            const statusDiv = document.getElementById('status');
+
+            if (!email) {
+                alert('Digite um email');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Entrando...';
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Fazendo login...';
+
+            try {
+                const { data: users, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('active', true)
+                    .eq('role', 'operator');
+
+                if (error) throw error;
+
+                if (!users || users.length === 0) {
+                    throw new Error('Usuário não encontrado ou inativo');
+                }
+
+                const user = users[0];
+
+                // Update last login
+                await supabase
+                    .from('users')
+                    .update({ last_login: new Date().toISOString() })
+                    .eq('id', user.id);
+
+                // Store user info
+                currentUser = {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    loggedIn: true
+                };
+
+                localStorage.setItem('operatorUser', JSON.stringify(currentUser));
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ Bem-vindo, ${user.name}!`;
+
+                showApp();
+                await loadBatches();
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro no login: ' + error.message;
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Entrar';
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('operatorUser');
+            currentUser = null;
+            batches = [];
+            showLogin();
+
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Deslogado com sucesso';
+        }
+
+        async function loadBatches() {
+            const statusDiv = document.getElementById('status');
+            const batchesContainer = document.getElementById('batches-container');
+
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Carregando lotes...';
+
+            try {
+                // Load active batches
+                const { data: batchesData, error: batchesError } = await supabase
+                    .from('batches')
+                    .select('*')
+                    .eq('status', 'Em andamento')
+                    .order('created_at', { ascending: false });
+
+                if (batchesError) throw batchesError;
+
+                // Load pieces for each batch
+                const batchesWithPieces = await Promise.all(
+                    (batchesData || []).map(async (batch) => {
+                        const { data: pieces, error: piecesError } = await supabase
+                            .from('pieces')
+                            .select('*')
+                            .eq('batch_id', batch.id);
+
+                        if (piecesError) {
+                            console.error('Erro ao buscar peças:', piecesError);
+                            return { ...batch, pieces: [] };
+                        }
+
+                        const piecesWithStatus = (pieces || []).map(piece => ({
+                            ...piece,
+                            completed: piece.produced_quantity >= piece.quantity
+                        }));
+
+                        return { ...batch, pieces: piecesWithStatus };
+                    })
+                );
+
+                batches = batchesWithPieces;
+                renderBatches();
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ ${batches.length} lote(s) carregado(s)`;
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro ao carregar lotes: ' + error.message;
+
+                batchesContainer.innerHTML = `
+                    <div class="status error">
+                        <h3>❌ Erro ao Carregar Lotes</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderBatches() {
+            const container = document.getElementById('batches-container');
+
+            if (batches.length === 0) {
+                container.innerHTML = `
+                    <div class="status warning">
+                        <p>📦 Nenhum lote ativo encontrado.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+
+            batches.forEach(batch => {
+                html += `
+                    <div class="batch-card">
+                        <h3>📦 ${batch.name} (${batch.code})</h3>
+                        <p><strong>Status:</strong> ${batch.status}</p>
+                        <p><strong>Período:</strong> ${batch.start_date} até ${batch.end_date}</p>
+                        
+                        <h4>🔧 Peças (${batch.pieces.length}):</h4>
+                `;
+
+                if (batch.pieces.length === 0) {
+                    html += '<p>Nenhuma peça cadastrada neste lote.</p>';
+                } else {
+                    batch.pieces.forEach(piece => {
+                        const progress = Math.min((piece.produced_quantity / piece.quantity) * 100, 100);
+                        const completed = piece.completed;
+
+                        html += `
+                            <div class="piece-card ${completed ? 'completed' : ''}" onclick="selectPiece('${piece.id}', '${batch.id}')">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${piece.code}</strong> - ${piece.description}
+                                        <br>
+                                        <small>Produzido: ${piece.produced_quantity}/${piece.quantity}</small>
+                                    </div>
+                                    <div>
+                                        ${completed ? '✅' : '⏳'}
+                                    </div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${progress}%; background-color: ${completed ? '#28a745' : '#007bff'}"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += '</div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        function selectPiece(pieceId, batchId) {
+            const batch = batches.find(b => b.id === batchId);
+            const piece = batch.pieces.find(p => p.id === pieceId);
+
+            if (!piece) return;
+
+            selectedPiece = { ...piece, batchColor: batch.color };
+
+            document.getElementById('selected-piece-info').innerHTML = `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <h4>${piece.description}</h4>
+                    <p><strong>Código:</strong> ${piece.code}</p>
+                    <p><strong>Planejado:</strong> ${piece.quantity}</p>
+                    <p><strong>Produzido:</strong> ${piece.produced_quantity}</p>
+                    <p><strong>Restante:</strong> ${piece.quantity - piece.produced_quantity}</p>
+                </div>
+            `;
+
+            // Reset form
+            document.getElementById('production-qty').value = 0;
+            document.getElementById('rework-qty').value = 0;
+            document.getElementById('rework-reason').value = '';
+            document.getElementById('operator-name').value = currentUser.name;
+
+            document.getElementById('production-modal').classList.remove('hidden');
+        }
+
+        function closeProductionModal() {
+            document.getElementById('production-modal').classList.add('hidden');
+            selectedPiece = null;
+        }
+
+        async function submitProduction() {
+            const productionQty = parseInt(document.getElementById('production-qty').value) || 0;
+            const reworkQty = parseInt(document.getElementById('rework-qty').value) || 0;
+            const reworkReason = document.getElementById('rework-reason').value;
+            const operatorName = document.getElementById('operator-name').value;
+            const submitBtn = document.getElementById('submit-btn');
+            const statusDiv = document.getElementById('status');
+
+            if (productionQty <= 0 && reworkQty <= 0) {
+                alert('Informe a quantidade produzida ou para retrabalho');
+                return;
+            }
+
+            if (reworkQty > 0 && !reworkReason.trim()) {
+                alert('Informe o motivo do retrabalho');
+                return;
+            }
+
+            if (!operatorName.trim()) {
+                alert('Informe o nome do operador');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Registrando...';
+            statusDiv.className = 'status info';
+            statusDiv.textContent = 'Registrando produção...';
+
+            try {
+                // Insert production record
+                const { error: recordError } = await supabase
+                    .from('production_records')
+                    .insert({
+                        piece_id: selectedPiece.id,
+                        operator_name: operatorName,
+                        quantity_produced: productionQty,
+                        quantity_rework: reworkQty > 0 ? reworkQty : null,
+                        notes: reworkReason || null,
+                    });
+
+                if (recordError) throw recordError;
+
+                // Update piece produced quantity if there's production
+                if (productionQty > 0) {
+                    const newProducedQuantity = selectedPiece.produced_quantity + productionQty;
+
+                    const { error: updateError } = await supabase
+                        .from('pieces')
+                        .update({ produced_quantity: newProducedQuantity })
+                        .eq('id', selectedPiece.id);
+
+                    if (updateError) throw updateError;
+                }
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Produção registrada com sucesso!';
+
+                closeProductionModal();
+                await loadBatches(); // Reload to show updated data
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro ao registrar produção: ' + error.message;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Registrar';
+            }
+        }
+
+        // Handle rework quantity change to show/hide reason field
+        document.addEventListener('DOMContentLoaded', () => {
+            const reworkQtyInput = document.getElementById('rework-qty');
+            const reworkReasonGroup = document.getElementById('rework-reason-group');
+
+            reworkQtyInput.addEventListener('input', () => {
+                const qty = parseInt(reworkQtyInput.value) || 0;
+                reworkReasonGroup.style.display = qty > 0 ? 'block' : 'none';
+            });
+        });
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+
+</html>
