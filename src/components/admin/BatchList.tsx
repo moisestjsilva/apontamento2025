@@ -48,6 +48,8 @@ export const BatchList = ({ onRefresh }: BatchListProps) => {
   const fetchBatches = async () => {
     try {
       setIsLoading(true);
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
       const { data: batchesData, error: batchesError } = await supabase
         .from('batches')
         .select('*')
@@ -190,6 +192,13 @@ export const BatchList = ({ onRefresh }: BatchListProps) => {
               Visualize e gerencie todos os lotes de produção ({batches.length} lotes)
             </CardDescription>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={fetchBatches}
+            disabled={isLoading}
+          >
+            {isLoading ? "Carregando..." : "Atualizar"}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

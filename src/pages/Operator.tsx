@@ -160,11 +160,11 @@ const Operator = () => {
     try {
       setIsLoading(true);
 
-      // Buscar lotes ativos
+      // Buscar lotes ativos (Em andamento e Concluído para mostrar dados reais)
       const { data: batchesData, error: batchesError } = await supabase
         .from('batches')
         .select('*')
-        .eq('status', 'Em andamento')
+        .in('status', ['Em andamento', 'Concluído'])
         .order('created_at', { ascending: false });
 
       if (batchesError) throw batchesError;
