@@ -65,10 +65,15 @@ export const ColumnMapper = ({ data, selectedBatch, onComplete, onCancel }: Colu
   });
 
   const handleMappingChange = (field: string, columnIndex: string) => {
-    setColumnMapping(prev => ({
-      ...prev,
-      [field]: columnIndex
-    }));
+    setColumnMapping(prev => {
+      const newMapping = { ...prev };
+      if (columnIndex === "none") {
+        delete newMapping[field];
+      } else {
+        newMapping[field] = columnIndex;
+      }
+      return newMapping;
+    });
   };
 
   const validateMappings = () => {
@@ -132,6 +137,36 @@ export const ColumnMapper = ({ data, selectedBatch, onComplete, onCancel }: Colu
 
         return piece;
       });
+
+      // Check for duplicate code+color combinations within the import data
+      const codeColumnIndex = columnMapping['code'];
+      const colorColumnIndex = columnMapping['color'];
+      
+      if (codeColumnIndex !== undefined) {
+        const codeColorCombinations = new Set();
+        const duplicates = [];
+        
+        for (let i = 0; i < data.rows.length; i++) {
+          const code = data.rows[i][parseInt(codeColumnIndex)]?.trim();
+          const color = colorColumnIndex !== undefined 
+            ? data.rows[i][parseInt(colorColumnIndex)]?.trim() || 'sem_cor'
+            : 'sem_cor';
+          
+          if (code) {
+            const combination = `${code}|${color}`;
+            if (codeColorCombinations.has(combination)) {
+              const displayColor = color === 'sem_cor' ? '(sem cor)' : color;
+              duplicates.push(`Linha ${i + 2}: "${code}" ${displayColor}`);
+            } else {
+              codeColorCombinations.add(combination);
+            }
+          }
+        }
+
+        if (duplicates.length > 0) {
+          throw new Error(`Combinações código+cor duplicadas encontradas na planilha:\n${duplicates.slice(0, 5).join('\n')}${duplicates.length > 5 ? `\n... e mais ${duplicates.length - 5}` : ''}`);
+        }
+      }
 
       onComplete(processedPieces);
       
@@ -206,7 +241,11 @@ export const ColumnMapper = ({ data, selectedBatch, onComplete, onCancel }: Colu
                 </SelectTrigger>
                 <SelectContent>
                   {data.headers.map((header, index) => (
-                    <SelectItem key={index} value={index.toString()}>
+                    <SelectItem 
+                      key={index} 
+                      value={index.toString()}
+                      className="focus:bg-green-100 focus:text-black focus:font-bold data-[highlighted]:bg-green-100 data-[highlighted]:text-black data-[highlighted]:font-bold hover:bg-green-100 hover:text-black hover:font-bold data-[state=checked]:bg-green-200 data-[state=checked]:text-black data-[state=checked]:font-bold transition-all duration-200"
+                    >
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">Col {index + 1}</Badge>
                         <span>{header || `Coluna ${index + 1}`}</span>
@@ -230,16 +269,25 @@ export const ColumnMapper = ({ data, selectedBatch, onComplete, onCancel }: Colu
                 </Badge>
               </div>
               <Select
-                value={columnMapping[field.key] || ""}
+                value={columnMapping[field.key] || "none"}
                 onValueChange={(value) => handleMappingChange(field.key, value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma coluna (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Não mapear</SelectItem>
+                  <SelectItem 
+                    value="none"
+                    className="focus:bg-green-100 focus:text-black focus:font-bold data-[highlighted]:bg-green-100 data-[highlighted]:text-black data-[highlighted]:font-bold hover:bg-green-100 hover:text-black hover:font-bold data-[state=checked]:bg-green-200 data-[state=checked]:text-black data-[state=checked]:font-bold transition-all duration-200"
+                  >
+                    Não mapear
+                  </SelectItem>
                   {data.headers.map((header, index) => (
-                    <SelectItem key={index} value={index.toString()}>
+                    <SelectItem 
+                      key={index} 
+                      value={index.toString()}
+                      className="focus:bg-green-100 focus:text-black focus:font-bold data-[highlighted]:bg-green-100 data-[highlighted]:text-black data-[highlighted]:font-bold hover:bg-green-100 hover:text-black hover:font-bold data-[state=checked]:bg-green-200 data-[state=checked]:text-black data-[state=checked]:font-bold transition-all duration-200"
+                    >
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">Col {index + 1}</Badge>
                         <span>{header || `Coluna ${index + 1}`}</span>

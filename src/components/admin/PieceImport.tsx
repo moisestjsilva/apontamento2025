@@ -48,16 +48,80 @@ export const PieceImport = () => {
 
   const handleImportSuccess = async (pieces: any[]) => {
     try {
-      const { error } = await supabase
+      // Verificar se existem combinações código+cor duplicadas no lote
+      const { data: existingPieces, error: checkError } = await supabase
         .from('pieces')
-        .insert(pieces);
+        .select('code, color')
+        .eq('batch_id', pieces[0]?.batch_id);
 
-      if (error) throw error;
+      if (checkError) throw checkError;
+
+      // Criar set de combinações existentes (código|cor)
+      const existingCombinations = new Set(
+        existingPieces?.map(p => `${p.code}|${p.color || 'sem_cor'}`) || []
+      );
+
+      const duplicates = [];
+      const newPieces = [];
+
+      // Separar peças novas das existentes baseado em código+cor
+      for (const piece of pieces) {
+        const combination = `${piece.code}|${piece.color || 'sem_cor'}`;
+        if (existingCombinations.has(combination)) {
+          duplicates.push(piece);
+        } else {
+          newPieces.push(piece);
+        }
+      }
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // Inserir peças novas (código+cor únicos)
+      if (newPieces.length > 0) {
+        const { error: insertError } = await supabase
+          .from('pieces')
+          .insert(newPieces);
+
+        if (insertError) throw insertError;
+        insertedCount = newPieces.length;
+      }
+
+      // Atualizar peças existentes (mesma combinação código+cor)
+      if (duplicates.length > 0) {
+        for (const piece of duplicates) {
+          const { error: updateError } = await supabase
+            .from('pieces')
+            .update({ 
+              quantity: piece.quantity,
+              description: piece.description
+            })
+            .eq('batch_id', piece.batch_id)
+            .eq('code', piece.code)
+            .eq('color', piece.color || null);
+
+          if (updateError) throw updateError;
+          updatedCount++;
+        }
+      }
+
+      // Mostrar resultado
+      let message = "";
+      if (insertedCount > 0 && updatedCount > 0) {
+        message = `${insertedCount} peças novas importadas e ${updatedCount} peças existentes atualizadas!`;
+      } else if (insertedCount > 0) {
+        message = `${insertedCount} peças importadas com sucesso!`;
+      } else if (updatedCount > 0) {
+        message = `${updatedCount} peças existentes atualizadas!`;
+      } else {
+        message = "Nenhuma peça foi processada.";
+      }
 
       toast({
         title: "Sucesso",
-        description: `${pieces.length} peças importadas com sucesso!`,
+        description: message,
       });
+
     } catch (error: any) {
       console.error('Erro ao importar peças:', error);
       toast({
@@ -107,7 +171,11 @@ export const PieceImport = () => {
               </SelectTrigger>
               <SelectContent>
                 {batches.map((batch) => (
-                  <SelectItem key={batch.id} value={batch.id}>
+                  <SelectItem 
+                    key={batch.id} 
+                    value={batch.id}
+                    className="focus:bg-green-100 focus:text-black focus:font-bold data-[highlighted]:bg-green-100 data-[highlighted]:text-black data-[highlighted]:font-bold hover:bg-green-100 hover:text-black hover:font-bold data-[state=checked]:bg-green-200 data-[state=checked]:text-black data-[state=checked]:font-bold transition-all duration-200"
+                  >
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">{batch.code}</Badge>
                       <span>{batch.name}</span>
